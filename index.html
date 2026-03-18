@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chipotle March Madness Squares</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://docs.google.com https://ncaa-api.henrygd.me https://ncaa.com https://www.ncaa.com data: 'unsafe-inline' 'unsafe-eval'; img-src 'self' https://ncaa.com https://www.ncaa.com data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://docs.google.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://ncaa-api.henrygd.me https://docs.google.com;">
+  <meta name="description" content="Live March Madness Squares board powered by a published Google Sheet." />
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: rgba(14, 22, 46, 0.82);
+      --panel-strong: rgba(18, 28, 58, 0.96);
+      --line: rgba(255, 255, 255, 0.1);
+      --text: #eff3ff;
+      --muted: #a8b3d1;
+      --accent: #7c9cff;
+      --accent-2: #4ce1b6;
+      --warning: #ffd166;
+      --danger: #ff6b8a;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      --radius: 22px;
+      --radius-sm: 14px;
+      --flash-bg: rgba(76, 225, 182, 0.22);
+      --flash-ring: rgba(76, 225, 182, 0.65);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top right, rgba(124, 156, 255, 0.22), transparent 32%),
+        radial-gradient(circle at top left, rgba(76, 225, 182, 0.18), transparent 30%),
+        linear-gradient(180deg, #0a0f1f 0%, #0c1123 100%);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      padding: 24px;
+    }
+
+    .shell {
+      max-width: 1440px;
+      margin: 0 auto;
+      display: grid;
+      gap: 20px;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(135deg, rgba(19, 30, 64, 0.95), rgba(12, 18, 39, 0.92));
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      padding: 28px;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -10% -40% auto;
+      width: 360px;
+      height: 360px;
+      background: radial-gradient(circle, rgba(124, 156, 255, 0.32), transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(76, 225, 182, 0.25);
+      background: rgba(76, 225, 182, 0.08);
+      color: #d9fff4;
+      font-size: 0.9rem;
+      letter-spacing: 0.01em;
+    }
+
+    .pulse {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent-2);
+      box-shadow: 0 0 0 0 rgba(76, 225, 182, 0.7);
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(76, 225, 182, 0.7); }
+      70% { box-shadow: 0 0 0 14px rgba(76, 225, 182, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(76, 225, 182, 0); }
+    }
+
+    h1 {
+      margin: 14px 0 10px;
+      font-size: clamp(2rem, 4vw, 3.6rem);
+      line-height: 1;
+      letter-spacing: -0.04em;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 820px;
+      color: var(--muted);
+      font-size: 1.02rem;
+      line-height: 1.6;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    button, .ghost-link {
+      appearance: none;
+      border: 0;
+      cursor: pointer;
+      border-radius: 14px;
+      padding: 12px 16px;
+      font: inherit;
+      font-weight: 700;
+      transition: transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
+      text-decoration: none;
+    }
+
+    button:hover, .ghost-link:hover { transform: translateY(-1px); }
+
+    .primary {
+      background: linear-gradient(135deg, var(--accent), #98adff);
+      color: #081026;
+      box-shadow: 0 10px 30px rgba(124, 156, 255, 0.25);
+    }
+
+    .ghost-link {
+      color: var(--text);
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 20px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(18px);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255,255,255,0.02);
+    }
+
+    .panel-title {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .panel-title h2 {
+      margin: 0;
+      font-size: 1.05rem;
+      letter-spacing: -0.02em;
+    }
+
+    .panel-title span {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      padding: 18px;
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.03);
+      padding: 16px;
+      min-height: 108px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .stat-label {
+      color: var(--muted);
+      font-size: 0.84rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .stat-value {
+      font-size: clamp(1.3rem, 2vw, 2rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+    }
+
+    .stat-sub {
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    .table-wrap {
+      overflow: auto;
+      max-height: 75vh;
+      border-top: 1px solid var(--line);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      min-width: 760px;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: rgba(12, 19, 40, 0.96);
+      backdrop-filter: blur(12px);
+      color: #dfe7ff;
+      font-size: 0.84rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    th, td {
+      padding: 14px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    tbody tr:hover td {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    tbody td.changed {
+      background: var(--flash-bg);
+      box-shadow: inset 0 0 0 1px var(--flash-ring);
+      animation: flash 1.6s ease;
+    }
+
+    @keyframes flash {
+      0% { background: rgba(76, 225, 182, 0.42); }
+      100% { background: var(--flash-bg); }
+    }
+
+    .sidebar {
+      display: grid;
+      gap: 20px;
+      align-content: start;
+    }
+
+    .timeline {
+      list-style: none;
+      margin: 0;
+      padding: 0 18px 18px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .timeline li {
+      display: grid;
+      gap: 6px;
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .timeline strong {
+      font-size: 0.93rem;
+    }
+
+    .timeline span,
+    .timeline small {
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .empty {
+      padding: 18px;
+      color: var(--muted);
+    }
+
+    .status-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      font-size: 0.9rem;
+      color: #d9e2ff;
+    }
+
+    .pill.warn {
+      background: rgba(255, 209, 102, 0.12);
+      border-color: rgba(255, 209, 102, 0.24);
+      color: #ffe7ac;
+    }
+
+    .pill.error {
+      background: rgba(255, 107, 138, 0.12);
+      border-color: rgba(255, 107, 138, 0.22);
+      color: #ffc1d0;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .footer {
+      padding: 4px 6px 20px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.6;
+    }
+
+    .games-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+      padding: 18px;
+    }
+
+    .game-card {
+      position: relative;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.02));
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+      overflow: hidden;
+    }
+
+    .game-card.live {
+      border-color: rgba(76, 225, 182, 0.35);
+      box-shadow: inset 0 0 0 1px rgba(76, 225, 182, 0.18);
+    }
+
+    .game-card.final {
+      border-color: rgba(255,255,255,0.12);
+    }
+
+    .game-card.changed {
+      animation: cardFlash 1.6s ease;
+    }
+
+    @keyframes cardFlash {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(76, 225, 182, 0.4); }
+      35% { transform: scale(1.01); box-shadow: 0 0 0 8px rgba(76, 225, 182, 0.08); }
+      100% { transform: scale(1); box-shadow: none; }
+    }
+
+    .game-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.09);
+    }
+
+    .badge.live {
+      background: rgba(76, 225, 182, 0.12);
+      border-color: rgba(76, 225, 182, 0.3);
+      color: #dbfff6;
+    }
+
+    .badge.pre {
+      background: rgba(124, 156, 255, 0.12);
+      border-color: rgba(124, 156, 255, 0.28);
+      color: #e1e8ff;
+    }
+
+    .teams {
+      display: grid;
+      gap: 10px;
+    }
+
+    .team-row {
+      display: grid;
+      grid-template-columns: 42px 1fr auto;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.035);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .team-row.winner {
+      background: rgba(76, 225, 182, 0.08);
+      border-color: rgba(76, 225, 182, 0.16);
+    }
+
+    .team-logo {
+      width: 42px;
+      height: 42px;
+      object-fit: contain;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.96);
+      padding: 5px;
+      border: 1px solid rgba(11,16,32,0.08);
+    }
+
+    .team-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      font-weight: 700;
+    }
+
+    .team-name span:last-child {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .seed {
+      color: var(--warning);
+      font-weight: 800;
+      font-size: 0.84rem;
+    }
+
+    .score {
+      font-size: 1.5rem;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      min-width: 2ch;
+      text-align: right;
+    }
+
+    .games-empty {
+      padding: 18px;
+      color: var(--muted);
+    }
+
+    .tiny {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      word-break: break-all;
+    }
+
+    @media (max-width: 1120px) {
+      .grid { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 720px) {
+      body { padding: 14px; }
+      .hero, .panel { border-radius: 20px; }
+      .stats { grid-template-columns: 1fr; }
+      .hero-top { flex-direction: column; }
+      h1 { line-height: 1.05; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <div class="hero-top">
+        <div>
+          <div class="eyebrow"><span class="pulse"></span> Live March Madness Squares</div>
+          <h1>Chipotle March Madness Squares</h1>
+          <p>
+            Auto-refreshing board powered by your published Google Sheet. The page checks for updates every 30 seconds,
+            highlights changed cells, and keeps a running feed of what just moved so score changes are easier to catch.
+          </p>
+        </div>
+        <div class="hero-actions">
+          <button id="refreshBtn" class="primary">Refresh now</button>
+          <a id="sourceLink" class="ghost-link" href="#" target="_blank" rel="noopener noreferrer">Open published sheet</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <h2>Live game tracker</h2>
+          <span>Team logos, scores, status, and visible change detection from NCAA Men’s Basketball</span>
+        </div>
+        <div class="status-bar">
+          <div id="gamesStatus" class="pill">Loading NCAA scoreboard</div>
+        </div>
+      </div>
+      <div id="gamesGrid" class="games-grid"></div>
+      <div id="gamesEmpty" class="games-empty">No NCAA games loaded yet.</div>
+    </section>
+
+    <section class="panel">
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-label">Refresh cadence</div>
+          <div class="stat-value">30s</div>
+          <div class="stat-sub">Continuous polling while page is open</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Rows loaded</div>
+          <div id="rowCount" class="stat-value">--</div>
+          <div class="stat-sub">Rendered from the published sheet</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Changed cells</div>
+          <div id="changeCount" class="stat-value">0</div>
+          <div class="stat-sub">Detected on the latest refresh</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Last update</div>
+          <div id="lastUpdate" class="stat-value">Waiting</div>
+          <div id="nextRefresh" class="stat-sub">Next refresh not scheduled yet</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <h2>Squares board</h2>
+            <span id="tableSubtitle">Live view of the published sheet tab</span>
+          </div>
+          <div class="status-bar">
+            <div id="liveStatus" class="pill"><span class="pulse"></span> Live updates active</div>
+            <div id="refreshStatus" class="pill">Initializing</div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="sheetTable" aria-live="polite">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside class="sidebar">
+        <section class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <h2>Update feed</h2>
+              <span>Newest sheet changes first</span>
+            </div>
+          </div>
+          <ul id="changeFeed" class="timeline"></ul>
+          <div id="changeFeedEmpty" class="empty">No changes detected yet. This will light up as soon as scores or winners move.</div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <h2>Connection details</h2>
+              <span>Useful if you need to swap tabs or republish</span>
+            </div>
+          </div>
+          <div class="empty">
+            <div class="status-bar" style="margin-bottom: 12px;">
+              <div class="pill">Sheet tab gid: <span id="gidBadge" class="mono"></span></div>
+            </div>
+            <div style="display:grid; gap:10px;">
+              <div><strong>Source URL</strong><br><span id="sourceUrlText" class="mono"></span></div>
+              <div><strong>JSONP endpoint</strong><br><span id="endpointText" class="mono"></span></div>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <div class="footer">
+      Host this file as <span class="mono">index.html</span> on GitHub Pages. The page reads a published Google Sheets tab,
+      refreshes every 30 seconds, and visually emphasizes score changes by flashing updated cells and adding them to the change feed.
+    </div>
+  </div>
+
+  <script>
+    const CONFIG = {
+      publishedSheetUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3vXG8WXm-Qtz9fdbwNpd2YdgHfRZb1f4zbLkMOq3SM1lgqeCfgNAKhbCX2OKnJONYxp0C02RgW0Kh/pubhtml?gid=1487282327&single=true",
+      ncaaApiBase: "https://ncaa-api.henrygd.me",
+      ncaaSportPath: "basketball-men/d1",
+      refreshMs: 30000,
+      maxFeedItems: 14,
+      maxCellTextLength: 80
+    };
+
+    const state = {
+      timer: null,
+      countdownTimer: null,
+      secondsRemaining: 0,
+      previousGrid: null,
+      previousGames: [],
+      headers: [],
+      lastRefreshAt: null,
+      changeFeed: [],
+      pubId: null,
+      gid: null,
+      endpoint: null,
+      requestSeq: 0
+    };
+
+    const els = {
+      sourceLink: document.getElementById('sourceLink'),
+      sourceUrlText: document.getElementById('sourceUrlText'),
+      endpointText: document.getElementById('endpointText'),
+      gidBadge: document.getElementById('gidBadge'),
+      refreshBtn: document.getElementById('refreshBtn'),
+      refreshStatus: document.getElementById('refreshStatus'),
+      liveStatus: document.getElementById('liveStatus'),
+      rowCount: document.getElementById('rowCount'),
+      changeCount: document.getElementById('changeCount'),
+      lastUpdate: document.getElementById('lastUpdate'),
+      nextRefresh: document.getElementById('nextRefresh'),
+      tableSubtitle: document.getElementById('tableSubtitle'),
+      thead: document.querySelector('#sheetTable thead'),
+      tbody: document.querySelector('#sheetTable tbody'),
+      changeFeed: document.getElementById('changeFeed'),
+      changeFeedEmpty: document.getElementById('changeFeedEmpty'),
+      gamesGrid: document.getElementById('gamesGrid'),
+      gamesEmpty: document.getElementById('gamesEmpty'),
+      gamesStatus: document.getElementById('gamesStatus')
+    };
+
+    function parsePublishedSheetUrl(urlString) {
+      const url = new URL(urlString);
+      const match = url.pathname.match(/\/spreadsheets\/d\/e\/([^/]+)/);
+      if (!match) throw new Error('Could not find published sheet id in URL.');
+      const pubId = match[1];
+      const gid = url.searchParams.get('gid') || '0';
+      return { pubId, gid };
+    }
+
+    function buildJsonpEndpoint(pubId, gid, callbackName) {
+      const base = `https://docs.google.com/spreadsheets/d/e/${pubId}/gviz/tq`;
+      const params = new URLSearchParams({
+        gid,
+        headers: '1',
+        tqx: `responseHandler:${callbackName}`
+      });
+      return `${base}?${params.toString()}`;
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function normalizeCell(cell) {
+      if (cell == null) return '';
+      if (typeof cell === 'object') {
+        if ('f' in cell && cell.f != null) return String(cell.f);
+        if ('v' in cell && cell.v != null) return String(cell.v);
+      }
+      return String(cell);
+    }
+
+    function extractGridFromGoogleTable(table) {
+      const rawHeaders = (table.cols || []).map((col, index) => {
+        const label = (col.label || '').trim();
+        return label || `Column ${index + 1}`;
+      });
+
+      const rows = (table.rows || []).map(row => {
+        const cells = row.c || [];
+        return rawHeaders.map((_, index) => normalizeCell(cells[index]));
+      });
+
+      const firstRowLooksLikeHeaders = rows.length > 0 && rows[0].some(Boolean) && rawHeaders.every(h => /^Column /.test(h));
+      const headers = firstRowLooksLikeHeaders ? rows[0].map((h, i) => h || `Column ${i + 1}`) : rawHeaders;
+      const bodyRows = firstRowLooksLikeHeaders ? rows.slice(1) : rows;
+
+      return { headers, rows: bodyRows };
+    }
+
+    function trimValue(value, max = CONFIG.maxCellTextLength) {
+      const str = String(value || '');
+      return str.length > max ? `${str.slice(0, max - 1)}…` : str;
+    }
+
+    function formatTime(date) {
+      return new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(date);
+    }
+
+    function formatDatePath(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}/${m}/${d}`;
+    }
+
+    function getLogoUrl(team) {
+      const seo = team?.names?.seo;
+      if (!seo) return '';
+      return `https://www.ncaa.com/sites/default/files/images/logos/schools/bgd/${seo}.svg`;
+    }
+
+    function teamDisplayName(team) {
+      if (!team) return '';
+      return team?.names?.short || team?.names?.char6 || team?.names?.full || '';
+    }
+
+    function gameStateLabel(game) {
+      const state = String(game?.gameState || '').toLowerCase();
+      if (state === 'live') return 'Live';
+      if (state === 'final') return game.finalMessage || 'Final';
+      if (state === 'pre') return 'Upcoming';
+      return state || 'Update';
+    }
+
+    function gameClockLabel(game) {
+      const state = String(game?.gameState || '').toLowerCase();
+      if (state === 'live') {
+        const parts = [game.currentPeriod, game.contestClock].filter(Boolean);
+        return parts.join(' · ') || 'In progress';
+      }
+      if (state === 'pre') return game.startTime || game.startDate || 'Scheduled';
+      return game.finalMessage || game.currentPeriod || game.startTime || 'Completed';
+    }
+
+    function normalizeGame(item) {
+      const game = item?.game || item || {};
+      const away = game.away || {};
+      const home = game.home || {};
+      return {
+        id: String(game.gameID || game.id || game.url || `${teamDisplayName(away)}-${teamDisplayName(home)}`),
+        state: String(game.gameState || '').toLowerCase(),
+        title: game.title || `${teamDisplayName(away)} vs ${teamDisplayName(home)}`,
+        round: game?.championshipGame?.round?.title || game.bracketRound || '',
+        clock: gameClockLabel(game),
+        network: game.network || '',
+        away: {
+          name: teamDisplayName(away),
+          score: away.score || '',
+          seed: away.seed || '',
+          winner: Boolean(away.winner),
+          logo: getLogoUrl(away)
+        },
+        home: {
+          name: teamDisplayName(home),
+          score: home.score || '',
+          seed: home.seed || '',
+          winner: Boolean(home.winner),
+          logo: getLogoUrl(home)
+        }
+      };
+    }
+
+    function compareGames(previousGames, nextGames) {
+      const previousMap = new Map(previousGames.map(game => [game.id, game]));
+      const changes = [];
+      for (const nextGame of nextGames) {
+        const prevGame = previousMap.get(nextGame.id);
+        if (!prevGame) {
+          changes.push({ gameId: nextGame.id, type: 'new', label: `${nextGame.title} added` });
+          continue;
+        }
+        const fields = [
+          ['away score', prevGame.away.score, nextGame.away.score],
+          ['home score', prevGame.home.score, nextGame.home.score],
+          ['status', prevGame.clock, nextGame.clock],
+          ['state', prevGame.state, nextGame.state]
+        ];
+        for (const [label, before, after] of fields) {
+          if ((before || '') !== (after || '')) {
+            changes.push({ gameId: nextGame.id, type: label, before: before || '', after: after || '', label: `${nextGame.title} ${label} changed` });
+          }
+        }
+      }
+      return changes;
+    }
+
+    function renderGames(games, changes) {
+      const changedIds = new Set(changes.map(change => change.gameId));
+      if (!games.length) {
+        els.gamesGrid.innerHTML = '';
+        els.gamesEmpty.style.display = 'block';
+        els.gamesStatus.textContent = 'No games on scoreboard';
+        return;
+      }
+
+      els.gamesEmpty.style.display = 'none';
+      els.gamesStatus.textContent = `${games.length} NCAA game${games.length === 1 ? '' : 's'} loaded`;
+      els.gamesGrid.innerHTML = games.map(game => {
+        const stateClass = game.state || 'update';
+        const changedClass = changedIds.has(game.id) ? 'changed' : '';
+        const liveDot = game.state === 'live' ? '<span class="pulse"></span>' : '';
+        const round = game.round ? `<span class="tiny">${escapeHtml(String(game.round))}</span>` : '';
+        const network = game.network ? `<span class="tiny">${escapeHtml(game.network)}</span>` : '';
+        return `
+          <article class="game-card ${escapeHtml(stateClass)} ${changedClass}">
+            <div class="game-meta">
+              <div class="badge ${escapeHtml(stateClass)}">${liveDot}${escapeHtml(gameStateLabel(game))}</div>
+              <div class="tiny">${escapeHtml(game.clock)}</div>
+            </div>
+            <div class="teams">
+              ${renderTeamRow(game.away)}
+              ${renderTeamRow(game.home)}
+            </div>
+            <div class="game-meta">
+              ${round || '<span class="tiny">&nbsp;</span>'}
+              ${network || '<span class="tiny">&nbsp;</span>'}
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function renderTeamRow(team) {
+      const winnerClass = team.winner ? 'winner' : '';
+      const seed = team.seed ? `<span class="seed">(${escapeHtml(team.seed)})</span>` : '';
+      const logo = team.logo ? `<img class="team-logo" src="${escapeHtml(team.logo)}" alt="${escapeHtml(team.name)} logo" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">` : '<div class="team-logo" aria-hidden="true"></div>';
+      return `
+        <div class="team-row ${winnerClass}">
+          ${logo}
+          <div class="team-name">${seed}<span>${escapeHtml(team.name || 'TBD')}</span></div>
+          <div class="score">${escapeHtml(team.score || '–')}</div>
+        </div>
+      `;
+    }
+
+    async function fetchNcaaGames() {
+      const datePath = formatDatePath(new Date());
+      const url = `${CONFIG.ncaaApiBase}/scoreboard/${CONFIG.ncaaSportPath}/${datePath}`;
+      const response = await fetch(url, { mode: 'cors' });
+      if (!response.ok) throw new Error(`NCAA scoreboard request failed with ${response.status}`);
+      const json = await response.json();
+      const games = Array.isArray(json?.games) ? json.games.map(normalizeGame) : [];
+      return games.filter(game => game.away.name || game.home.name);
+    }
+
+    async function refreshGames() {
+      try {
+        const games = await fetchNcaaGames();
+        const changes = compareGames(state.previousGames, games);
+        renderGames(games, changes);
+        state.previousGames = games;
+        if (changes.length) {
+          const timestamp = formatTime(new Date());
+          const additions = changes.slice(0, 8).map(change => ({
+            time: timestamp,
+            title: change.label,
+            detail: change.type === 'new' ? 'New game added to the NCAA scoreboard.' : `“${trimValue(change.before, 28)}” → “${trimValue(change.after, 28)}”`,
+            rowLabel: 'NCAA live game tracker'
+          }));
+          state.changeFeed = [...additions, ...state.changeFeed].slice(0, CONFIG.maxFeedItems);
+          els.changeFeed.innerHTML = state.changeFeed.map(item => `
+            <li>
+              <strong>${escapeHtml(item.title)}</strong>
+              <span>${escapeHtml(item.detail)}</span>
+              <small>${escapeHtml(item.rowLabel)} · ${escapeHtml(item.time)}</small>
+            </li>
+          `).join('');
+          els.changeFeedEmpty.style.display = state.changeFeed.length ? 'none' : 'block';
+        }
+      } catch (error) {
+        console.error(error);
+        els.gamesStatus.textContent = 'NCAA scoreboard unavailable';
+      }
+    }
+
+    function formatTime(date) {
+      return new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(date);
+    }
+
+    function formatRelativeSeconds(seconds) {
+      if (seconds <= 0) return 'Refreshing now';
+      return `Next refresh in ${seconds}s`;
+    }
+
+    function setRefreshStatus(text, kind = 'normal') {
+      els.refreshStatus.textContent = text;
+      els.refreshStatus.className = 'pill';
+      if (kind === 'warn') els.refreshStatus.classList.add('warn');
+      if (kind === 'error') els.refreshStatus.classList.add('error');
+    }
+
+    function updateCountdown() {
+      els.nextRefresh.textContent = formatRelativeSeconds(state.secondsRemaining);
+      if (state.secondsRemaining > 0) state.secondsRemaining -= 1;
+    }
+
+    function startCountdown() {
+      if (state.countdownTimer) clearInterval(state.countdownTimer);
+      state.secondsRemaining = Math.round(CONFIG.refreshMs / 1000);
+      updateCountdown();
+      state.countdownTimer = setInterval(updateCountdown, 1000);
+    }
+
+    function compareGrids(previousGrid, nextGrid) {
+      const changes = [];
+      const prevRows = previousGrid ? previousGrid.rows : [];
+      const maxRows = Math.max(prevRows.length, nextGrid.rows.length);
+      const maxCols = Math.max(previousGrid ? previousGrid.headers.length : 0, nextGrid.headers.length);
+
+      for (let rowIndex = 0; rowIndex < maxRows; rowIndex += 1) {
+        for (let colIndex = 0; colIndex < maxCols; colIndex += 1) {
+          const before = prevRows[rowIndex]?.[colIndex] ?? '';
+          const after = nextGrid.rows[rowIndex]?.[colIndex] ?? '';
+          if (before !== after) {
+            changes.push({
+              rowIndex,
+              colIndex,
+              header: nextGrid.headers[colIndex] || previousGrid?.headers?.[colIndex] || `Column ${colIndex + 1}`,
+              before,
+              after
+            });
+          }
+        }
+      }
+
+      return changes;
+    }
+
+    function cellChangeKey(change) {
+      return `${change.rowIndex}:${change.colIndex}`;
+    }
+
+    function renderTable(grid, changes) {
+      const changedKeys = new Set(changes.map(cellChangeKey));
+      els.thead.innerHTML = `<tr>${grid.headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr>`;
+
+      if (grid.rows.length === 0) {
+        els.tbody.innerHTML = `<tr><td colspan="${Math.max(1, grid.headers.length)}" class="muted">No data returned from the published sheet.</td></tr>`;
+        return;
+      }
+
+      els.tbody.innerHTML = grid.rows.map((row, rowIndex) => {
+        const cells = grid.headers.map((_, colIndex) => {
+          const value = row[colIndex] ?? '';
+          const changedClass = changedKeys.has(`${rowIndex}:${colIndex}`) ? 'changed' : '';
+          return `<td class="${changedClass}">${escapeHtml(value)}</td>`;
+        }).join('');
+        return `<tr>${cells}</tr>`;
+      }).join('');
+    }
+
+    function summarizeRow(grid, rowIndex) {
+      const row = grid.rows[rowIndex] || [];
+      const firstNonEmpty = row.find(value => String(value || '').trim() !== '');
+      return trimValue(firstNonEmpty || `Row ${rowIndex + 1}`, 52);
+    }
+
+    function updateChangeFeed(grid, changes) {
+      const timestamp = new Date();
+      const additions = changes.slice(0, 20).map(change => ({
+        time: formatTime(timestamp),
+        title: `${change.header} updated`,
+        detail: `${summarizeRow(grid, change.rowIndex)}: “${trimValue(change.before, 30)}” → “${trimValue(change.after, 30)}”`,
+        rowLabel: `Row ${change.rowIndex + 1}, column ${change.colIndex + 1}`
+      }));
+
+      if (additions.length > 0) {
+        state.changeFeed = [...additions, ...state.changeFeed].slice(0, CONFIG.maxFeedItems);
+      }
+
+      els.changeFeed.innerHTML = state.changeFeed.map(item => `
+        <li>
+          <strong>${escapeHtml(item.title)}</strong>
+          <span>${escapeHtml(item.detail)}</span>
+          <small>${escapeHtml(item.rowLabel)} · ${escapeHtml(item.time)}</small>
+        </li>
+      `).join('');
+
+      els.changeFeedEmpty.style.display = state.changeFeed.length ? 'none' : 'block';
+    }
+
+    function updateStats(grid, changes) {
+      els.rowCount.textContent = String(grid.rows.length);
+      els.changeCount.textContent = String(changes.length);
+      state.lastRefreshAt = new Date();
+      els.lastUpdate.textContent = formatTime(state.lastRefreshAt);
+      els.tableSubtitle.textContent = `${grid.rows.length} rows · ${grid.headers.length} columns · watching for score movement every 30 seconds`;
+    }
+
+    function handleGrid(grid) {
+      const changes = compareGrids(state.previousGrid, grid);
+      renderTable(grid, changes);
+      updateChangeFeed(grid, changes);
+      updateStats(grid, changes);
+      state.previousGrid = grid;
+      setRefreshStatus(changes.length ? `${changes.length} live change${changes.length === 1 ? '' : 's'} detected` : 'No changes on latest check');
+      startCountdown();
+    }
+
+    function fetchViaJsonp() {
+      return new Promise((resolve, reject) => {
+        const callbackName = `__sheetCallback${Date.now()}_${state.requestSeq += 1}`;
+        const endpoint = buildJsonpEndpoint(state.pubId, state.gid, callbackName);
+        state.endpoint = endpoint;
+        els.endpointText.textContent = endpoint;
+
+        let cleaned = false;
+        const cleanup = () => {
+          if (cleaned) return;
+          cleaned = true;
+          delete window[callbackName];
+          script.remove();
+          clearTimeout(timeoutId);
+        };
+
+        window[callbackName] = (response) => {
+          cleanup();
+          try {
+            if (!response?.table) throw new Error('No table returned by Google Visualization endpoint.');
+            resolve(extractGridFromGoogleTable(response.table));
+          } catch (error) {
+            reject(error);
+          }
+        };
+
+        const script = document.createElement('script');
+        script.src = endpoint;
+        script.async = true;
+        script.onerror = () => {
+          cleanup();
+          reject(new Error('Could not load the published sheet endpoint.'));
+        };
+
+        const timeoutId = setTimeout(() => {
+          cleanup();
+          reject(new Error('Timed out while waiting for the published sheet response.'));
+        }, 12000);
+
+        document.body.appendChild(script);
+      });
+    }
+
+    async function refreshData() {
+      try {
+        setRefreshStatus('Checking for updates');
+        const [grid] = await Promise.all([fetchViaJsonp(), refreshGames()]);
+        handleGrid(grid);
+      } catch (error) {
+        console.error(error);
+        setRefreshStatus('Refresh failed', 'error');
+        els.nextRefresh.textContent = 'Will retry automatically';
+      }
+    }
+
+    function scheduleRefresh() {
+      if (state.timer) clearInterval(state.timer);
+      state.timer = setInterval(refreshData, CONFIG.refreshMs);
+    }
+
+    function initialize() {
+      const { pubId, gid } = parsePublishedSheetUrl(CONFIG.publishedSheetUrl);
+      state.pubId = pubId;
+      state.gid = gid;
+
+      els.sourceLink.href = CONFIG.publishedSheetUrl;
+      els.sourceUrlText.textContent = CONFIG.publishedSheetUrl;
+      els.gidBadge.textContent = gid;
+
+      els.refreshBtn.addEventListener('click', refreshData);
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) refreshData();
+      });
+
+      refreshData();
+      scheduleRefresh();
+    }
+
+    initialize();
+  </script>
+</body>
+</html>
